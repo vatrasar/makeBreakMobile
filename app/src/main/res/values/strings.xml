@@ -1,0 +1,75 @@
+<resources>
+    <string name="app_name">MakeBreak</string>
+
+    <!-- Navigation -->
+    <string name="nav_timer">Timer</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Timer Screen Status -->
+    <string name="status_ready">Ready to Work</string>
+    <string name="status_working">Working Session</string>
+    <string name="status_break_pending">Break Time</string>
+    <string name="status_short_break">Short Break</string>
+    <string name="status_long_break">Long Break</string>
+    <string name="status_break_finished">Break Finished</string>
+    <string name="status_paused">Paused</string>
+
+    <!-- Timer Screen Subtitles & Messages -->
+    <string name="desc_ready">Press start to begin your productive focus session.</string>
+    <string name="desc_working_next_short">Next short break in:</string>
+    <string name="desc_working_next_long">Next long break in:</string>
+    <string name="desc_break_pending_short">Time for a short break! Tap Start Break to begin resting.</string>
+    <string name="desc_break_pending_long">Time for a long break! Tap Start Break to begin resting.</string>
+    <string name="desc_short_break">Rest your eyes, look into the distance, and take deep breaths.</string>
+    <string name="desc_long_break">Stand up, stretch your body, grab some water, and take a real rest.</string>
+    <string name="desc_break_finished">Well done! Click Finish Break to resume your work session.</string>
+
+    <!-- Timer Screen Actions -->
+    <string name="btn_start">Start Session</string>
+    <string name="btn_start_break">Start Break</string>
+    <string name="btn_pause">Pause</string>
+    <string name="btn_resume">Resume</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_skip_break">Skip</string>
+    <string name="btn_finish_break">Finish Break</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_intervals">Break Intervals</string>
+    <string name="settings_short_interval_label">Short Break Interval (minutes)</string>
+    <string name="settings_short_duration_label">Short Break Duration (seconds)</string>
+    <string name="settings_long_interval_label">Long Break Interval (minutes)</string>
+    <string name="settings_long_duration_label">Long Break Duration (seconds)</string>
+    <string name="settings_save">Save Settings</string>
+    <string name="settings_reset_defaults">Defaults</string>
+
+    <!-- Sound & Voice Settings -->
+    <string name="settings_section_sound">Voice Announcements</string>
+    <string name="settings_voice_enabled">Enable Voice Announcements</string>
+    <string name="settings_voice_volume">Voice Volume</string>
+    <string name="settings_test_start_voice">Test Start Break Voice</string>
+    <string name="settings_test_finish_voice">Test Finish Break Voice</string>
+    <string name="settings_channel_note">Audio plays via the Alarm channel so it is audible even when phone is muted.</string>
+
+    <!-- Background & Battery Settings -->
+    <string name="settings_section_battery">Reliable Background Execution</string>
+    <string name="settings_battery_optimization_title">Battery Optimization</string>
+    <string name="settings_battery_optimization_desc">Disable battery optimizations to ensure alarms and timers trigger reliably in the background.</string>
+    <string name="settings_battery_disabled_status">Unrestricted battery enabled</string>
+    <string name="settings_battery_enabled_status">Battery optimization active (may delay alerts)</string>
+    <string name="settings_battery_request_button">Request Unrestricted Battery</string>
+    <string name="settings_saved_feedback">Settings saved</string>
+    <string name="settings_defaults_restored_feedback">Defaults restored</string>
+
+    <!-- Notification Strings -->
+    <string name="notification_channel_name">Break Timer</string>
+    <string name="notification_channel_desc">Active session countdown and break alerts</string>
+    <string name="notification_working_title">Focus Session Active</string>
+    <string name="notification_break_pending_title">Time for a Break!</string>
+    <string name="notification_break_pending_text">Tap to open MakeBreak and begin your break.</string>
+    <string name="notification_short_break_title">Short Break in Progress</string>
+    <string name="notification_long_break_title">Long Break in Progress</string>
+    <string name="notification_break_finished_title">Break Finished!</string>
+    <string name="notification_break_finished_text">Open the app and tap Finish Break to resume working.</string>
+    <string name="notification_paused_title">Timer Paused</string>
+</resources>
