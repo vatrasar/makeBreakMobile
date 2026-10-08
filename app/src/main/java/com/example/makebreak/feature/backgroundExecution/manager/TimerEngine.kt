@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.example.makebreak.MainActivity
 import com.example.makebreak.core.domain.enums.NextBreakType
 import com.example.makebreak.core.domain.enums.SessionState
 import com.example.makebreak.core.domain.model.TimerSession
@@ -437,17 +438,39 @@ class TimerEngine @Inject constructor(
             action = BreakAlarmReceiver.ACTION_TIMER_ALARM
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val pendingIntent = PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent, flags)
+        val pendingIntent = PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent, flags) ?: return
+        val showPendingIntent = createAlarmShowPendingIntent()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                scheduleAlarmClock(triggerAtMillis, pendingIntent, showPendingIntent)
             } else {
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
             }
         } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+            scheduleAlarmClock(triggerAtMillis, pendingIntent, showPendingIntent)
         }
+    }
+
+    private fun scheduleAlarmClock(
+        triggerAtMillis: Long,
+        pendingIntent: PendingIntent,
+        showPendingIntent: PendingIntent?
+    ) {
+        try {
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showPendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+        } catch (exception: Exception) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
+    }
+
+    private fun createAlarmShowPendingIntent(): PendingIntent? {
+        val showIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return PendingIntent.getActivity(context, ALARM_SHOW_REQUEST_CODE, showIntent, flags)
     }
 
     private fun cancelAlarm() {
@@ -455,7 +478,7 @@ class TimerEngine @Inject constructor(
             action = BreakAlarmReceiver.ACTION_TIMER_ALARM
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val pendingIntent = PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent, flags)
+        val pendingIntent = PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent, flags) ?: return
         alarmManager.cancel(pendingIntent)
     }
 
@@ -475,6 +498,7 @@ class TimerEngine @Inject constructor(
 
     companion object {
         private const val ALARM_REQUEST_CODE = 4201
+        private const val ALARM_SHOW_REQUEST_CODE = 4202
         private const val VOICE_REPEAT_INTERVAL_MS = 20_000L
     }
 }

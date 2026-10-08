@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.os.PowerManager
 import android.util.Log
 import com.example.makebreak.core.domain.service.AudioAnnouncementPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +21,7 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
     private var mediaPlayer: MediaPlayer? = null
     private var lastStartFile: String? = null
     private var lastFinishedFile: String? = null
+    private var playbackWakeLock: PowerManager.WakeLock? = null
 
     private val audioAttributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -28,7 +30,7 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
 
     /**
      * Plays a random break start voice announcement without immediate repetition.
-     * Invoked by: BreakTimerService, SettingsViewModel.
+     * Invoked by: TimerEngine, SettingsViewModel.
      */
     override fun playBreakStart(volume: Float) {
         playRandomAsset("audio/BreakStart", volume, isStart = true)
@@ -36,7 +38,7 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
 
     /**
      * Plays a random break finished voice announcement without immediate repetition.
-     * Invoked by: BreakTimerService, SettingsViewModel.
+     * Invoked by: TimerEngine, SettingsViewModel.
      */
     override fun playBreakFinished(volume: Float) {
         playRandomAsset("audio/BreakFinished", volume, isStart = false)
@@ -44,7 +46,7 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
 
     /**
      * Stops currently playing voice announcement.
-     * Invoked by: BreakTimerService, SettingsViewModel.
+     * Invoked by: TimerEngine, SettingsViewModel.
      */
     override fun stop() {
         releasePlayer()
@@ -90,9 +92,11 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
 
     private fun playFile(assetPath: String, volume: Float) {
         releasePlayer()
+        acquirePlaybackWakeLock()
         try {
             val afd: AssetFileDescriptor = context.assets.openFd(assetPath)
             val player = MediaPlayer()
+            player.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
             player.setAudioAttributes(audioAttributes)
             player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             afd.close()
@@ -114,7 +118,26 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
         }
     }
 
+    private fun acquirePlaybackWakeLock() {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        playbackWakeLock = powerManager?.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            PLAYBACK_WAKE_LOCK_TAG
+        )?.apply {
+            setReferenceCounted(false)
+            acquire(PLAYBACK_WAKE_LOCK_TIMEOUT_MS)
+        }
+    }
+
+    private fun releasePlaybackWakeLock() {
+        if (playbackWakeLock?.isHeld == true) {
+            playbackWakeLock?.release()
+        }
+        playbackWakeLock = null
+    }
+
     private fun releasePlayer() {
+        releasePlaybackWakeLock()
         try {
             mediaPlayer?.stop()
         } catch (exception: IllegalStateException) {
@@ -126,5 +149,7 @@ class AudioAnnouncementPlayerImpl @Inject constructor(
 
     companion object {
         private const val TAG = "AudioAnnouncementPlayer"
+        private const val PLAYBACK_WAKE_LOCK_TAG = "MakeBreak:AudioPlaybackWakeLock"
+        private const val PLAYBACK_WAKE_LOCK_TIMEOUT_MS = 15_000L
     }
 }
