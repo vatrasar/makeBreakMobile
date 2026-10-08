@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.Flow
  * Main BreakTimer screen displaying the active session countdown, status badge, and controls.
  *
  * Available Functionalities:
- * Start focus session, start break upon confirmation, pause, resume, reset, skip breaks, and confirm break completion.
+ * Start focus session, start break upon confirmation, pause, resume, reset, toggle voice muting for pending breaks, and confirm break completion.
  *
  * Key UI elements:
  * AppHeader branding, SessionStatusBadge, TimerDisplay with circular progress, TimerControls action buttons.
@@ -90,11 +90,12 @@ private fun BreakTimerContent(
         Spacer(modifier = Modifier.weight(1f))
         TimerControls(
             sessionState = state.session.state,
+            isMuted = state.session.isBreakAnnouncementsMuted,
             onStart = { onEvent(BreakTimerEvent.OnStartSession) },
             onPause = { onEvent(BreakTimerEvent.OnPauseSession) },
             onResume = { onEvent(BreakTimerEvent.OnResumeSession) },
             onReset = { onEvent(BreakTimerEvent.OnResetSession) },
-            onSkipBreak = { onEvent(BreakTimerEvent.OnSkipBreak) }
+            onToggleMute = { onEvent(BreakTimerEvent.OnToggleMuteBreakAnnouncements) }
         )
     }
 }

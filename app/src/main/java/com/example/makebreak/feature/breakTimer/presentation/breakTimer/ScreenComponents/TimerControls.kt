@@ -8,7 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -32,15 +33,16 @@ import com.example.makebreak.core.domain.enums.SessionState
  *
  * Usage:
  * sessionState: current state of the timer session.
+ * isMuted: whether pending break announcements are muted.
  * onStart: triggers session start.
  * onPause: triggers session pause.
  * onResume: triggers session resume.
  * onReset: resets session to ready.
- * onSkipBreak: skips current break phase.
+ * onToggleMute: toggles pending break announcement voice muting.
  * modifier: optional layout modifier.
  *
  * Key UI elements:
- * Start Session button, Pause/Resume button, Reset button, Skip button.
+ * Start Session button, Pause/Resume button, Reset button, Mute/Unmute button.
  *
  * Used In:
  * BreakTimerScreen
@@ -48,11 +50,12 @@ import com.example.makebreak.core.domain.enums.SessionState
 @Composable
 fun TimerControls(
     sessionState: SessionState,
+    isMuted: Boolean,
     onStart: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onReset: () -> Unit,
-    onSkipBreak: () -> Unit,
+    onToggleMute: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -67,11 +70,12 @@ fun TimerControls(
             SessionState.READY -> ReadyControls(onStart = onStart)
             SessionState.WORKING -> WorkingControls(onPause = onPause, onReset = onReset)
             SessionState.BREAK_PENDING -> BreakPendingControls(
-                onSkip = onSkipBreak,
+                isMuted = isMuted,
+                onToggleMute = onToggleMute,
                 onReset = onReset
             )
             SessionState.PAUSED -> PausedControls(onResume = onResume, onReset = onReset)
-            SessionState.SHORT_BREAK, SessionState.LONG_BREAK -> InBreakControls(onSkip = onSkipBreak, onReset = onReset)
+            SessionState.SHORT_BREAK, SessionState.LONG_BREAK -> InBreakControls(onReset = onReset)
             SessionState.BREAK_FINISHED -> BreakFinishedControls(onReset = onReset)
         }
     }
@@ -177,42 +181,21 @@ private fun PausedControls(onResume: () -> Unit, onReset: () -> Unit) {
 }
 
 @Composable
-private fun InBreakControls(onSkip: () -> Unit, onReset: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun InBreakControls(onReset: () -> Unit) {
+    OutlinedButton(
+        onClick = onReset,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .testTag("resetSessionButton"),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        OutlinedButton(
-            onClick = onReset,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 48.dp)
-                .testTag("resetSessionButton"),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
-            Text(
-                text = stringResource(R.string.btn_reset),
-                modifier = Modifier.padding(start = 6.dp),
-                maxLines = 1
-            )
-        }
-        Button(
-            onClick = onSkip,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 48.dp)
-                .testTag("skipBreakButton"),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Icon(imageVector = Icons.Default.FastForward, contentDescription = null)
-            Text(
-                text = stringResource(R.string.btn_skip_break),
-                modifier = Modifier.padding(start = 6.dp),
-                maxLines = 1
-            )
-        }
+        Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
+        Text(
+            text = stringResource(R.string.btn_reset),
+            modifier = Modifier.padding(start = 6.dp),
+            maxLines = 1
+        )
     }
 }
 
@@ -237,7 +220,8 @@ private fun BreakFinishedControls(onReset: () -> Unit) {
 
 @Composable
 private fun BreakPendingControls(
-    onSkip: () -> Unit,
+    isMuted: Boolean,
+    onToggleMute: () -> Unit,
     onReset: () -> Unit
 ) {
     Row(
@@ -261,16 +245,18 @@ private fun BreakPendingControls(
             )
         }
         OutlinedButton(
-            onClick = onSkip,
+            onClick = onToggleMute,
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 48.dp)
-                .testTag("skipBreakButton"),
+                .testTag("toggleMuteBreakButton"),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Icon(imageVector = Icons.Default.FastForward, contentDescription = null)
+            val icon = if (isMuted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff
+            val label = if (isMuted) stringResource(R.string.btn_unmute) else stringResource(R.string.btn_mute)
+            Icon(imageVector = icon, contentDescription = null)
             Text(
-                text = stringResource(R.string.btn_skip_break),
+                text = label,
                 modifier = Modifier.padding(start = 6.dp),
                 maxLines = 1
             )

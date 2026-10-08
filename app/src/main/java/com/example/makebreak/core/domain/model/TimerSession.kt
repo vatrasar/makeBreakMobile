@@ -10,7 +10,8 @@ data class TimerSession(
     val nextBreakType: NextBreakType = NextBreakType.SHORT,
     val secondsUntilShortBreak: Int = 0,
     val secondsUntilLongBreak: Int = 0,
-    val isPaused: Boolean = false
+    val isPaused: Boolean = false,
+    val isBreakAnnouncementsMuted: Boolean = false
 ) {
     val progress: Float
         get() = if (totalPhaseSeconds > 0) {

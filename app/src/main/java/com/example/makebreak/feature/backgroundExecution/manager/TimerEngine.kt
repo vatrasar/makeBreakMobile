@@ -112,9 +112,11 @@ class TimerEngine @Inject constructor(
             isPaused = false
         )
         if (restoredState == SessionState.BREAK_PENDING) {
-            startPendingVoiceLoop()
-            cancelAlarm()
-            scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
+            if (!_sessionState.value.isBreakAnnouncementsMuted) {
+                startPendingVoiceLoop()
+                cancelAlarm()
+                scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
+            }
         } else {
             val remaining = _sessionState.value.remainingSeconds
             phaseEndTimestampMillis = currentTimeMillisProvider() + remaining * 1000L
@@ -139,22 +141,19 @@ class TimerEngine @Inject constructor(
     }
 
     /**
-     * Skips the current break and immediately transitions back into working session.
+     * Toggles muting of voice announcements during a pending break without starting the break.
      * Invoked by: BreakTimerViewModel.
      */
-    fun skipBreak() {
-        if (_sessionState.value.state != SessionState.SHORT_BREAK &&
-            _sessionState.value.state != SessionState.LONG_BREAK &&
-            _sessionState.value.state != SessionState.BREAK_PENDING &&
-            _sessionState.value.state != SessionState.BREAK_FINISHED
-        ) {
+    fun toggleMuteBreakAnnouncements() {
+        if (_sessionState.value.state != SessionState.BREAK_PENDING) {
             return
         }
-        cancelTicker()
-        cancelPendingVoiceJob()
-        cancelAlarm()
-        audioAnnouncementPlayer.stop()
-        beginWorkingPhase()
+        val currentlyMuted = _sessionState.value.isBreakAnnouncementsMuted
+        if (currentlyMuted) {
+            unmuteBreakAnnouncements()
+        } else {
+            muteBreakAnnouncements()
+        }
     }
 
     /**
@@ -178,6 +177,9 @@ class TimerEngine @Inject constructor(
      */
     fun onAlarmTriggered() {
         if (_sessionState.value.state == SessionState.BREAK_PENDING) {
+            if (_sessionState.value.isBreakAnnouncementsMuted) {
+                return
+            }
             cancelPendingVoiceJob()
             playBreakAnnouncement()
             startPendingVoiceLoop()
@@ -186,6 +188,20 @@ class TimerEngine @Inject constructor(
             return
         }
         handlePhaseCompleted()
+    }
+
+    private fun muteBreakAnnouncements() {
+        cancelPendingVoiceJob()
+        cancelAlarm()
+        audioAnnouncementPlayer.stop()
+        _sessionState.value = _sessionState.value.copy(isBreakAnnouncementsMuted = true)
+    }
+
+    private fun unmuteBreakAnnouncements() {
+        _sessionState.value = _sessionState.value.copy(isBreakAnnouncementsMuted = false)
+        playBreakAnnouncement()
+        startPendingVoiceLoop()
+        scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
     }
 
     /**

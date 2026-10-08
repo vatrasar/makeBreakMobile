@@ -15,7 +15,7 @@ sealed class BreakTimerEvent {
     data object OnPauseSession : BreakTimerEvent()
     data object OnResumeSession : BreakTimerEvent()
     data object OnResetSession : BreakTimerEvent()
-    data object OnSkipBreak : BreakTimerEvent()
+    data object OnToggleMuteBreakAnnouncements : BreakTimerEvent()
     data object OnFinishBreak : BreakTimerEvent()
     data object OnSyncTime : BreakTimerEvent()
 }

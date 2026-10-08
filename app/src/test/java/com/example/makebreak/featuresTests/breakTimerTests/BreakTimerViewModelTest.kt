@@ -76,6 +76,15 @@ class BreakTimerViewModelTest {
     }
 
     @Test
+    fun onEvent_toggleMuteBreakAnnouncements_triggersTimerEngineToggleMuteBreakAnnouncements() = runTest(testDispatcher) {
+        val viewModel = BreakTimerViewModel(timerEngine)
+
+        viewModel.onEvent(BreakTimerEvent.OnToggleMuteBreakAnnouncements)
+
+        verify(exactly = 1) { timerEngine.toggleMuteBreakAnnouncements() }
+    }
+
+    @Test
     fun onEvent_syncTime_triggersTimerEngineSyncTime() = runTest(testDispatcher) {
         val viewModel = BreakTimerViewModel(timerEngine)
 

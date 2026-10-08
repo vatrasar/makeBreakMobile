@@ -30,7 +30,8 @@
     <string name="btn_pause">Pause</string>
     <string name="btn_resume">Resume</string>
     <string name="btn_reset">Reset</string>
-    <string name="btn_skip_break">Skip</string>
+    <string name="btn_mute">Mute</string>
+    <string name="btn_unmute">Unmute</string>
     <string name="btn_finish_break">Finish Break</string>
 
     <!-- Settings Screen -->

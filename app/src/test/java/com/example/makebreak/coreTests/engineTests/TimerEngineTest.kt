@@ -185,7 +185,7 @@ class TimerEngineTest {
     }
 
     @Test
-    fun skipBreak_duringBreakPending_stopsRepeatingVoiceAndResumesWork() = runTest(testDispatcher) {
+    fun toggleMuteBreakAnnouncements_duringBreakPending_mutesAudioWithoutStartingBreak() = runTest(testDispatcher) {
         val voiceSettings = testSettings.copy(isVoiceEnabled = true)
         every { userSettingsRepository.getUserSettingsFlow() } returns flowOf(voiceSettings)
 
@@ -198,12 +198,64 @@ class TimerEngineTest {
             engine.onAlarmTriggered()
 
             assertEquals(SessionState.BREAK_PENDING, engine.sessionState.value.state)
+            org.junit.Assert.assertFalse(engine.sessionState.value.isBreakAnnouncementsMuted)
 
-            engine.skipBreak()
-            assertEquals(SessionState.WORKING, engine.sessionState.value.state)
+            engine.toggleMuteBreakAnnouncements()
+
+            assertEquals(SessionState.BREAK_PENDING, engine.sessionState.value.state)
+            org.junit.Assert.assertTrue(engine.sessionState.value.isBreakAnnouncementsMuted)
             io.mockk.verify(atLeast = 1) { audioPlayer.stop() }
 
+            testDispatcher.scheduler.advanceTimeBy(40_000L)
+            io.mockk.verify(exactly = 1) { audioPlayer.playBreakStart(any()) }
+        } finally {
+            engine.resetSession()
+        }
+    }
+
+    @Test
+    fun toggleMuteBreakAnnouncements_whenAlreadyMuted_unmutesAndResumesAnnouncements() = runTest(testDispatcher) {
+        val voiceSettings = testSettings.copy(isVoiceEnabled = true)
+        every { userSettingsRepository.getUserSettingsFlow() } returns flowOf(voiceSettings)
+
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            engine.onAlarmTriggered()
+            engine.toggleMuteBreakAnnouncements()
+            org.junit.Assert.assertTrue(engine.sessionState.value.isBreakAnnouncementsMuted)
+
+            engine.toggleMuteBreakAnnouncements()
+            org.junit.Assert.assertFalse(engine.sessionState.value.isBreakAnnouncementsMuted)
+            io.mockk.verify(exactly = 2) { audioPlayer.playBreakStart(any()) }
+
             testDispatcher.scheduler.advanceTimeBy(20_000L)
+            testDispatcher.scheduler.runCurrent()
+            io.mockk.verify(exactly = 3) { audioPlayer.playBreakStart(any()) }
+        } finally {
+            engine.resetSession()
+        }
+    }
+
+    @Test
+    fun onAlarmTriggered_whenBreakPendingAndMuted_doesNotPlayAudio() = runTest(testDispatcher) {
+        val voiceSettings = testSettings.copy(isVoiceEnabled = true)
+        every { userSettingsRepository.getUserSettingsFlow() } returns flowOf(voiceSettings)
+
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            engine.onAlarmTriggered()
+            engine.toggleMuteBreakAnnouncements()
+
+            engine.onAlarmTriggered()
+
             io.mockk.verify(exactly = 1) { audioPlayer.playBreakStart(any()) }
         } finally {
             engine.resetSession()
