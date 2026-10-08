@@ -18,10 +18,15 @@ import androidx.navigation.compose.rememberNavController
 import com.example.makebreak.common.theme.MakeBreakTheme
 import com.example.makebreak.navigation.AppBottomBar
 import com.example.makebreak.navigation.NavGraph
+import com.example.makebreak.feature.backgroundExecution.manager.TimerEngine
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var timerEngine: TimerEngine
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -35,6 +40,11 @@ class MainActivity : ComponentActivity() {
                 MainAppScaffold()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        timerEngine.syncTime()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

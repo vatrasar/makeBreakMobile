@@ -76,6 +76,15 @@ class BreakTimerViewModelTest {
     }
 
     @Test
+    fun onEvent_syncTime_triggersTimerEngineSyncTime() = runTest(testDispatcher) {
+        val viewModel = BreakTimerViewModel(timerEngine)
+
+        viewModel.onEvent(BreakTimerEvent.OnSyncTime)
+
+        verify(exactly = 1) { timerEngine.syncTime() }
+    }
+
+    @Test
     fun stateObserver_whenTimerEngineEmitsNewSession_updatesUiState() = runTest(testDispatcher) {
         val viewModel = BreakTimerViewModel(timerEngine)
         testDispatcher.scheduler.advanceUntilIdle()

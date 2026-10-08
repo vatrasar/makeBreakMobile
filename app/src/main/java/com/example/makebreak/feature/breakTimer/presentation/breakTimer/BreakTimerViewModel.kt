@@ -31,6 +31,7 @@ class BreakTimerViewModel @Inject constructor(
             BreakTimerEvent.OnResetSession -> timerEngine.resetSession()
             BreakTimerEvent.OnSkipBreak -> timerEngine.skipBreak()
             BreakTimerEvent.OnFinishBreak -> timerEngine.finishBreak()
+            BreakTimerEvent.OnSyncTime -> timerEngine.syncTime()
         }
     }
 

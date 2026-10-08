@@ -47,6 +47,8 @@ class TimerEngine @Inject constructor(
     private var pendingBreakDuration: Int = 0
     private var tickerJob: Job? = null
     private var pendingVoiceJob: Job? = null
+    private var phaseEndTimestampMillis: Long = 0L
+    internal var currentTimeMillisProvider: () -> Long = { System.currentTimeMillis() }
 
     init {
         observeSettings()
@@ -81,10 +83,14 @@ class TimerEngine @Inject constructor(
      * Invoked by: BreakTimerViewModel.
      */
     fun pauseSession() {
+        if (_sessionState.value.state == SessionState.PAUSED || _sessionState.value.state == SessionState.READY) {
+            return
+        }
         cancelTicker()
         cancelPendingVoiceJob()
         cancelAlarm()
         audioAnnouncementPlayer.stop()
+        syncTime()
         previousStateBeforePause = _sessionState.value.state
         _sessionState.value = _sessionState.value.copy(
             state = SessionState.PAUSED,
@@ -108,11 +114,12 @@ class TimerEngine @Inject constructor(
         if (restoredState == SessionState.BREAK_PENDING) {
             startPendingVoiceLoop()
             cancelAlarm()
-            scheduleAlarm(System.currentTimeMillis() + VOICE_REPEAT_INTERVAL_MS)
+            scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
         } else {
             val remaining = _sessionState.value.remainingSeconds
+            phaseEndTimestampMillis = currentTimeMillisProvider() + remaining * 1000L
             startTicker()
-            scheduleAlarm(System.currentTimeMillis() + remaining * 1000L)
+            scheduleAlarm(phaseEndTimestampMillis)
         }
     }
 
@@ -125,6 +132,7 @@ class TimerEngine @Inject constructor(
         cancelPendingVoiceJob()
         cancelAlarm()
         audioAnnouncementPlayer.stop()
+        phaseEndTimestampMillis = 0L
         workedSecondsInCycle = 0
         _sessionState.value = TimerSession(state = SessionState.READY)
         stopTimerService()
@@ -174,10 +182,27 @@ class TimerEngine @Inject constructor(
             playBreakAnnouncement()
             startPendingVoiceLoop()
             cancelAlarm()
-            scheduleAlarm(System.currentTimeMillis() + VOICE_REPEAT_INTERVAL_MS)
+            scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
             return
         }
         handlePhaseCompleted()
+    }
+
+    /**
+     * Synchronizes the countdown timer with real wall-clock elapsed time.
+     * Invoked by: MainActivity, BreakTimerService, BreakTimerViewModel.
+     */
+    fun syncTime() {
+        val current = _sessionState.value
+        if (current.isPaused) {
+            return
+        }
+        when (current.state) {
+            SessionState.WORKING, SessionState.SHORT_BREAK, SessionState.LONG_BREAK -> {
+                updateActivePhaseTime(current)
+            }
+            else -> {}
+        }
     }
 
     private fun observeSettings() {
@@ -209,6 +234,7 @@ class TimerEngine @Inject constructor(
         }
 
         val phaseSeconds = minOf(timeUntilShort, timeUntilLong).coerceAtLeast(1)
+        phaseEndTimestampMillis = currentTimeMillisProvider() + phaseSeconds * 1000L
 
         _sessionState.value = TimerSession(
             state = SessionState.WORKING,
@@ -221,7 +247,7 @@ class TimerEngine @Inject constructor(
         )
 
         startTicker()
-        scheduleAlarm(System.currentTimeMillis() + phaseSeconds * 1000L)
+        scheduleAlarm(phaseEndTimestampMillis)
     }
 
     private fun beginBreakPendingPhase(breakState: SessionState, durationSeconds: Int) {
@@ -229,6 +255,7 @@ class TimerEngine @Inject constructor(
         cancelAlarm()
         cancelPendingVoiceJob()
 
+        phaseEndTimestampMillis = 0L
         pendingBreakState = breakState
         pendingBreakDuration = durationSeconds
 
@@ -244,12 +271,14 @@ class TimerEngine @Inject constructor(
 
         playBreakAnnouncement()
         startPendingVoiceLoop()
-        scheduleAlarm(System.currentTimeMillis() + VOICE_REPEAT_INTERVAL_MS)
+        scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
     }
 
     private fun beginBreakPhase(breakState: SessionState, durationSeconds: Int) {
         cancelTicker()
         cancelAlarm()
+
+        phaseEndTimestampMillis = currentTimeMillisProvider() + durationSeconds * 1000L
 
         _sessionState.value = TimerSession(
             state = breakState,
@@ -262,13 +291,15 @@ class TimerEngine @Inject constructor(
         )
 
         startTicker()
-        scheduleAlarm(System.currentTimeMillis() + durationSeconds * 1000L)
+        scheduleAlarm(phaseEndTimestampMillis)
     }
 
     private fun beginBreakFinishedPhase() {
         cancelTicker()
         cancelAlarm()
         cancelPendingVoiceJob()
+
+        phaseEndTimestampMillis = 0L
 
         if (currentSettings.isVoiceEnabled) {
             audioAnnouncementPlayer.playBreakFinished(currentSettings.voiceVolume)
@@ -313,7 +344,7 @@ class TimerEngine @Inject constructor(
                 delay(VOICE_REPEAT_INTERVAL_MS)
                 playBreakAnnouncement()
                 cancelAlarm()
-                scheduleAlarm(System.currentTimeMillis() + VOICE_REPEAT_INTERVAL_MS)
+                scheduleAlarm(currentTimeMillisProvider() + VOICE_REPEAT_INTERVAL_MS)
             }
         }
     }
@@ -334,33 +365,38 @@ class TimerEngine @Inject constructor(
         tickerJob = engineScope.launch {
             while (isActive) {
                 delay(1000L)
-                processTick()
+                syncTime()
             }
         }
     }
 
-    private fun processTick() {
-        val current = _sessionState.value
-        if (current.isPaused || current.state == SessionState.READY || current.state == SessionState.BREAK_PENDING || current.state == SessionState.BREAK_FINISHED) {
+    private fun updateActivePhaseTime(current: TimerSession) {
+        val remainingMillis = phaseEndTimestampMillis - currentTimeMillisProvider()
+        val newRemaining = if (remainingMillis <= 0L) 0 else ((remainingMillis + 999L) / 1000L).toInt()
+
+        if (newRemaining <= 0) {
+            _sessionState.value = current.copy(remainingSeconds = 0)
+            handlePhaseCompleted()
             return
         }
 
-        if (current.remainingSeconds > 1) {
-            decrementTick(current)
-        } else {
-            _sessionState.value = current.copy(remainingSeconds = 0)
-            handlePhaseCompleted()
-        }
+        applyUpdatedRemainingSeconds(current, newRemaining)
     }
 
-    private fun decrementTick(current: TimerSession) {
-        val newRemaining = current.remainingSeconds - 1
+    private fun applyUpdatedRemainingSeconds(current: TimerSession, newRemaining: Int) {
         if (current.state == SessionState.WORKING) {
             val currentWorkedInCycle = workedSecondsInCycle + (current.totalPhaseSeconds - newRemaining)
             val shortInterval = currentSettings.shortBreakIntervalMinutes * 60
             val longInterval = currentSettings.longBreakIntervalMinutes * 60
-            val timeUntilShort = shortInterval - (currentWorkedInCycle % shortInterval)
+            val timeUntilShort = (shortInterval - (currentWorkedInCycle % shortInterval)).coerceAtLeast(0)
             val timeUntilLong = (longInterval - currentWorkedInCycle).coerceAtLeast(0)
+
+            if (current.remainingSeconds == newRemaining &&
+                current.secondsUntilShortBreak == timeUntilShort &&
+                current.secondsUntilLongBreak == timeUntilLong
+            ) {
+                return
+            }
 
             _sessionState.value = current.copy(
                 remainingSeconds = newRemaining,
@@ -368,6 +404,9 @@ class TimerEngine @Inject constructor(
                 secondsUntilLongBreak = timeUntilLong
             )
         } else {
+            if (current.remainingSeconds == newRemaining) {
+                return
+            }
             _sessionState.value = current.copy(remainingSeconds = newRemaining)
         }
     }

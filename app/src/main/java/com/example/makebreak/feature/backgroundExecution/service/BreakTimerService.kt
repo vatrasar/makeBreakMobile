@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -31,6 +33,15 @@ class BreakTimerService : Service {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var stateObserverJob: Job? = null
+    private var isScreenReceiverRegistered: Boolean = false
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                timerEngine.syncTime()
+            }
+        }
+    }
 
     constructor() : super()
 
@@ -41,6 +52,7 @@ class BreakTimerService : Service {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        registerScreenReceiver()
     }
 
     /**
@@ -67,11 +79,27 @@ class BreakTimerService : Service {
      */
     override fun onDestroy() {
         super.onDestroy()
+        unregisterScreenReceiver()
         stateObserverJob?.cancel()
         serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun registerScreenReceiver() {
+        if (!isScreenReceiverRegistered) {
+            val filter = IntentFilter(Intent.ACTION_SCREEN_ON)
+            registerReceiver(screenReceiver, filter)
+            isScreenReceiverRegistered = true
+        }
+    }
+
+    private fun unregisterScreenReceiver() {
+        if (isScreenReceiverRegistered) {
+            unregisterReceiver(screenReceiver)
+            isScreenReceiverRegistered = false
+        }
+    }
 
     private fun observeSessionState() {
         stateObserverJob?.cancel()

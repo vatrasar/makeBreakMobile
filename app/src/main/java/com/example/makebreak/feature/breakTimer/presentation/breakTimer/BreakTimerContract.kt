@@ -17,6 +17,7 @@ sealed class BreakTimerEvent {
     data object OnResetSession : BreakTimerEvent()
     data object OnSkipBreak : BreakTimerEvent()
     data object OnFinishBreak : BreakTimerEvent()
+    data object OnSyncTime : BreakTimerEvent()
 }
 
 @Immutable

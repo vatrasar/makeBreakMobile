@@ -209,4 +209,110 @@ class TimerEngineTest {
             engine.resetSession()
         }
     }
+
+    @Test
+    fun syncTime_whenTimeElapsedWithScreenOff_updatesRemainingSecondsAccurately() = runTest(testDispatcher) {
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        var simulatedTime = 1_000_000L
+        engine.currentTimeMillisProvider = { simulatedTime }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            assertEquals(1200, engine.sessionState.value.remainingSeconds)
+
+            simulatedTime += 600_000L
+            engine.syncTime()
+
+            val state = engine.sessionState.value
+            assertEquals(SessionState.WORKING, state.state)
+            assertEquals(600, state.remainingSeconds)
+            assertEquals(600, state.secondsUntilShortBreak)
+            assertEquals(3000, state.secondsUntilLongBreak)
+        } finally {
+            engine.resetSession()
+        }
+    }
+
+    @Test
+    fun syncTime_whenFullWorkPhaseElapsed_transitionsToBreakPending() = runTest(testDispatcher) {
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        var simulatedTime = 1_000_000L
+        engine.currentTimeMillisProvider = { simulatedTime }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            assertEquals(1200, engine.sessionState.value.remainingSeconds)
+
+            simulatedTime += 1_200_000L
+            engine.syncTime()
+
+            val state = engine.sessionState.value
+            assertEquals(SessionState.BREAK_PENDING, state.state)
+            assertEquals(20, state.remainingSeconds)
+        } finally {
+            engine.resetSession()
+        }
+    }
+
+    @Test
+    fun syncTime_duringBreakPhase_updatesRemainingBreakSeconds() = runTest(testDispatcher) {
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        var simulatedTime = 1_000_000L
+        engine.currentTimeMillisProvider = { simulatedTime }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            simulatedTime += 1_200_000L
+            engine.syncTime()
+
+            engine.startBreak()
+            assertEquals(SessionState.SHORT_BREAK, engine.sessionState.value.state)
+            assertEquals(20, engine.sessionState.value.remainingSeconds)
+
+            simulatedTime += 12_000L
+            engine.syncTime()
+
+            assertEquals(SessionState.SHORT_BREAK, engine.sessionState.value.state)
+            assertEquals(8, engine.sessionState.value.remainingSeconds)
+        } finally {
+            engine.resetSession()
+        }
+    }
+
+    @Test
+    fun pauseAndResume_recalculatesEndTimestampFromRemainingSeconds() = runTest(testDispatcher) {
+        val engine = TimerEngine(context, userSettingsRepository, audioPlayer)
+        currentEngine = engine
+        var simulatedTime = 1_000_000L
+        engine.currentTimeMillisProvider = { simulatedTime }
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        try {
+            engine.startSession()
+            simulatedTime += 300_000L
+            engine.pauseSession()
+
+            assertEquals(SessionState.PAUSED, engine.sessionState.value.state)
+            assertEquals(900, engine.sessionState.value.remainingSeconds)
+
+            simulatedTime += 10_000_000L
+            engine.syncTime()
+            assertEquals(900, engine.sessionState.value.remainingSeconds)
+
+            engine.resumeSession()
+            assertEquals(SessionState.WORKING, engine.sessionState.value.state)
+
+            simulatedTime += 100_000L
+            engine.syncTime()
+            assertEquals(800, engine.sessionState.value.remainingSeconds)
+        } finally {
+            engine.resetSession()
+        }
+    }
 }
